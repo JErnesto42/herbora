@@ -3,7 +3,7 @@ const test = require('node:test');
 const jwt = require('jsonwebtoken');
 
 process.env.JWT_SECRET = 'test-secret-with-at-least-thirty-two-characters';
-const { requireAuth, requireAdmin } = require('../src/middleware/auth');
+const { requireAuth, requireAdmin, optionalAuth, requireMember } = require('../src/middleware/auth');
 
 function requestWithAuthorization(authorization) {
   return { get: () => authorization };
@@ -40,7 +40,7 @@ test('rejects an invalid bearer token', () => {
 });
 
 test('attaches a verified user to the request', () => {
-  const token = jwt.sign({ sub: '17', role: 'customer' }, process.env.JWT_SECRET);
+  const token = jwt.sign({ sub: '17', role: 'member' }, process.env.JWT_SECRET);
   const req = requestWithAuthorization(`Bearer ${token}`);
   const res = {};
   let nextCalled = false;
@@ -49,11 +49,11 @@ test('attaches a verified user to the request', () => {
 
   assert.equal(nextCalled, true);
   assert.equal(req.user.sub, '17');
-  assert.equal(req.user.role, 'customer');
+  assert.equal(req.user.role, 'member');
 });
 
-test('blocks customers from administrator actions', () => {
-  const req = { user: { role: 'customer' } };
+test('blocks members from administrator actions', () => {
+  const req = { user: { role: 'member' } };
   let nextCalled = false;
   const res = {
     statusCode: null,
@@ -74,4 +74,38 @@ test('allows an administrator to continue', () => {
   requireAdmin(req, {}, () => { nextCalled = true; });
 
   assert.equal(nextCalled, true);
+});
+
+test('allows anonymous access through optional auth', () => {
+  const req = requestWithAuthorization('');
+  let nextCalled = false;
+
+  optionalAuth(req, {}, () => { nextCalled = true; });
+
+  assert.equal(nextCalled, true);
+  assert.equal(req.user, undefined);
+});
+
+test('allows members and administrators through member authorization', () => {
+  for (const role of ['member', 'admin']) {
+    let nextCalled = false;
+    requireMember({ user: { role } }, {}, () => { nextCalled = true; });
+    assert.equal(nextCalled, true);
+  }
+});
+
+test('blocks unauthenticated and legacy roles from member authorization', () => {
+  for (const user of [undefined, { role: 'customer' }]) {
+    let nextCalled = false;
+    const res = {
+      statusCode: null,
+      status(code) { this.statusCode = code; return this; },
+      json(payload) { this.payload = payload; return this; },
+    };
+
+    requireMember({ user }, res, () => { nextCalled = true; });
+
+    assert.equal(res.statusCode, 403);
+    assert.equal(nextCalled, false);
+  }
 });

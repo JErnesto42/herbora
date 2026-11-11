@@ -4,6 +4,7 @@ const cors = require('cors');
 const pool = require('./db');
 const authRoutes = require('./routes/auth');
 const plantRoutes = require('./routes/plants');
+const accountRoutes = require('./routes/account');
 
 if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
   throw new Error('Defina JWT_SECRET com pelo menos 32 caracteres no arquivo backend/.env.');
@@ -22,6 +23,7 @@ app.get('/api/health', async (req, res, next) => {
   }
 });
 app.use('/api/auth', authRoutes);
+app.use('/api/account', accountRoutes);
 app.use('/api/plants', plantRoutes);
 
 app.use((req, res) => res.status(404).json({ message: 'Rota não encontrada.' }));

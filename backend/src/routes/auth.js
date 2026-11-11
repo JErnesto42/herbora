@@ -42,9 +42,9 @@ router.post('/register', async (req, res, next) => {
     const passwordHash = await bcrypt.hash(password, 12);
     const [result] = await pool.execute(
       'INSERT INTO users (name, email, password_hash, role, privacy_consent_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)',
-      [name.trim(), normalizedEmail, passwordHash, 'customer'],
+      [name.trim(), normalizedEmail, passwordHash, 'member'],
     );
-    const user = { id: result.insertId, name: name.trim(), email: normalizedEmail, role: 'customer' };
+    const user = { id: result.insertId, name: name.trim(), email: normalizedEmail, role: 'member' };
     return res.status(201).json({ user, token: createToken(user) });
   } catch (error) {
     if (error.code === 'ER_DUP_ENTRY') {
@@ -85,6 +85,37 @@ router.get('/me', requireAuth, async (req, res, next) => {
     if (!rows[0]) return res.status(404).json({ message: 'Usuário não encontrado.' });
     return res.json({ user: publicUser(rows[0]) });
   } catch (error) {
+    return next(error);
+  }
+});
+
+router.put('/me', requireAuth, async (req, res, next) => {
+  const { name, email } = req.body || {};
+  const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+
+  if (typeof name !== 'string' || name.trim().length < 2 || name.trim().length > 120) {
+    return res.status(400).json({ message: 'Informe um nome com 2 a 120 caracteres.' });
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail) || normalizedEmail.length > 190) {
+    return res.status(400).json({ message: 'Informe um e-mail válido.' });
+  }
+
+  try {
+    await pool.execute(
+      'UPDATE users SET name = ?, email = ? WHERE id = ?',
+      [name.trim(), normalizedEmail, req.user.sub],
+    );
+
+    const [rows] = await pool.execute(
+      'SELECT id, name, email, role FROM users WHERE id = ? LIMIT 1',
+      [req.user.sub],
+    );
+    if (!rows[0]) return res.status(404).json({ message: 'Usuário não encontrado.' });
+    return res.json({ user: publicUser(rows[0]), message: 'Perfil atualizado.' });
+  } catch (error) {
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ message: 'Já existe uma conta com este e-mail.' });
+    }
     return next(error);
   }
 });

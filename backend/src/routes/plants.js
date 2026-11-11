@@ -1,11 +1,12 @@
 const { Router } = require('express');
 const pool = require('../db');
-const { requireAuth, requireAdmin } = require('../middleware/auth');
+const { requireAuth, requireAdmin, optionalAuth } = require('../middleware/auth');
 
 const router = Router();
-const columns = `id, nome_popular AS nomePopular, nome_cientifico AS nomeCientifico,
-  categoria, resumo, uso_tradicional AS usoTradicional, preparo,
-  compostos, cuidados, combinacoes`;
+const publicColumns = `id, nome_popular AS nomePopular, nome_cientifico AS nomeCientifico,
+  categoria, resumo, uso_tradicional AS usoTradicional, cuidados`;
+const memberColumns = `${publicColumns}, preparo,
+  compostos, combinacoes`;
 const fields = ['nomePopular', 'nomeCientifico', 'categoria', 'resumo', 'usoTradicional', 'preparo', 'compostos', 'cuidados', 'combinacoes'];
 const dbFields = ['nome_popular', 'nome_cientifico', 'categoria', 'resumo', 'uso_tradicional', 'preparo', 'compostos', 'cuidados', 'combinacoes'];
 
@@ -19,8 +20,9 @@ function validatePlant(body) {
   return null;
 }
 
-router.get('/', async (req, res, next) => {
+router.get('/', optionalAuth, async (req, res, next) => {
   try {
+    const columns = req.user?.role === 'admin' ? memberColumns : publicColumns;
     const [plants] = await pool.query(`SELECT ${columns} FROM plants WHERE active = 1 ORDER BY nome_popular`);
     return res.json({ plants });
   } catch (error) {
@@ -28,9 +30,10 @@ router.get('/', async (req, res, next) => {
   }
 });
 
-router.get('/:id', async (req, res, next) => {
+router.get('/:id', optionalAuth, async (req, res, next) => {
   if (!/^\d+$/.test(req.params.id)) return res.status(400).json({ message: 'Identificador inválido.' });
   try {
+    const columns = ['member', 'admin'].includes(req.user?.role) ? memberColumns : publicColumns;
     const [rows] = await pool.execute(`SELECT ${columns} FROM plants WHERE id = ? AND active = 1 LIMIT 1`, [req.params.id]);
     if (!rows[0]) return res.status(404).json({ message: 'Planta não encontrada.' });
     return res.json({ plant: rows[0] });

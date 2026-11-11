@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput } from 'react-native';
 import { apiRequest, clearSessionToken, getSessionToken, saveSessionToken } from '../services/api';
 
 export default function AccountScreen({ navigation }) {
@@ -9,6 +9,7 @@ export default function AccountScreen({ navigation }) {
   const [password, setPassword] = useState('');
   const [privacyConsent, setPrivacyConsent] = useState(false);
   const [session, setSession] = useState(null);
+  const [editingProfile, setEditingProfile] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
@@ -50,6 +51,25 @@ export default function AccountScreen({ navigation }) {
     }
   }
 
+  async function saveProfile() {
+    setMessage('');
+    setBusy(true);
+    try {
+      const result = await apiRequest('/auth/me', {
+        method: 'PUT',
+        body: { name: name.trim(), email: email.trim() },
+        token: session.token,
+      });
+      setSession((current) => ({ ...current, user: result.user }));
+      setEditingProfile(false);
+      setMessage(result.message);
+    } catch (error) {
+      setMessage(error.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function logout() {
     try {
       await clearSessionToken();
@@ -66,13 +86,65 @@ export default function AccountScreen({ navigation }) {
 
   if (session) {
     return (
-      <View style={styles.page}>
+      <ScrollView contentContainerStyle={styles.page}>
         <Text style={styles.eyebrow}>SUA CONTA</Text>
         <Text style={styles.title}>Olá, {session.user.name}</Text>
         <Text style={styles.role}>
-          {session.user.role === 'admin' ? 'ADMINISTRADOR' : 'CLIENTE'}
+          {session.user.role === 'admin' ? 'ADMINISTRADOR' : 'USUÁRIO COM CONTA'}
         </Text>
         <Text style={styles.description}>Sua sessão está ativa neste dispositivo.</Text>
+        {editingProfile ? (
+          <>
+            <TextInput
+              style={styles.input}
+              placeholder="Seu nome"
+              placeholderTextColor="#829087"
+              value={name}
+              onChangeText={setName}
+              autoCapitalize="words"
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="E-mail"
+              placeholderTextColor="#829087"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+            <Pressable
+              style={[styles.primaryButton, busy && styles.disabled]}
+              onPress={saveProfile}
+              disabled={busy}
+              accessibilityRole="button"
+            >
+              {busy ? <ActivityIndicator color="#fffefa" /> : <Text style={styles.primaryText}>Salvar perfil</Text>}
+            </Pressable>
+            <Pressable onPress={() => setEditingProfile(false)} accessibilityRole="button">
+              <Text style={styles.switch}>Cancelar edição</Text>
+            </Pressable>
+          </>
+        ) : (
+          <Pressable
+            style={styles.secondaryButton}
+            onPress={() => {
+              setName(session.user.name);
+              setEmail(session.user.email);
+              setEditingProfile(true);
+              setMessage('');
+            }}
+            accessibilityRole="button"
+          >
+            <Text style={styles.secondaryText}>Ver e editar meu perfil</Text>
+          </Pressable>
+        )}
+        <Pressable
+          style={styles.secondaryButton}
+          onPress={() => navigation.navigate('Minha área')}
+          accessibilityRole="button"
+        >
+          <Text style={styles.secondaryText}>Meus favoritos, histórico e anotações</Text>
+        </Pressable>
         {session.user.role === 'admin' && (
           <Pressable
             style={styles.secondaryButton}
@@ -86,12 +158,12 @@ export default function AccountScreen({ navigation }) {
           <Text style={styles.secondaryText}>Sair da conta</Text>
         </Pressable>
         {!!message && <Text style={styles.message}>{message}</Text>}
-      </View>
+      </ScrollView>
     );
   }
 
   return (
-    <View style={styles.page}>
+    <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
       <Text style={styles.eyebrow}>COMUNIDADE HERBORA</Text>
       <Text style={styles.title}>{mode === 'register' ? 'Crie sua conta' : 'Boas-vindas de volta'}</Text>
       <Text style={styles.description}>Salve seu acesso para acompanhar o universo das plantas.</Text>
@@ -109,7 +181,7 @@ export default function AccountScreen({ navigation }) {
         >
           <Text style={styles.checkbox}>{privacyConsent ? '☑' : '□'}</Text>
           <Text style={styles.consentText}>
-            Concordo com o uso do meu nome e e-mail para criar e manter minha conta.
+            Concordo com o armazenamento do meu nome, e-mail, favoritos, histórico e anotações para manter os recursos da minha conta.
           </Text>
         </Pressable>
       )}
@@ -121,12 +193,12 @@ export default function AccountScreen({ navigation }) {
       </Pressable>
       {!!message && <Text style={styles.message}>{message}</Text>}
       <Text style={styles.privacy}>Sua senha é protegida por hash no servidor. Nunca compartilhe sua senha.</Text>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: '#f7f5ed', padding: 23, paddingTop: 35 },
+  page: { flexGrow: 1, backgroundColor: '#f7f5ed', padding: 23, paddingTop: 35 },
   eyebrow: { color: '#315b43', fontSize: 10, fontWeight: '800', letterSpacing: 2 },
   title: { color: '#203b2e', fontSize: 29, fontWeight: '800', marginTop: 9 },
   description: { color: '#66766a', fontSize: 14, lineHeight: 21, marginTop: 8, marginBottom: 18 },

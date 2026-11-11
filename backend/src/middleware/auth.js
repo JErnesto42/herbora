@@ -22,4 +22,28 @@ function requireAdmin(req, res, next) {
   return next();
 }
 
-module.exports = { requireAuth, requireAdmin };
+function optionalAuth(req, res, next) {
+  const authorization = req.get('authorization') || '';
+  if (!authorization) return next();
+
+  const [scheme, token] = authorization.split(' ');
+  if (scheme !== 'Bearer' || !token) {
+    return res.status(401).json({ message: 'Formato de autenticação inválido.' });
+  }
+
+  try {
+    req.user = jwt.verify(token, process.env.JWT_SECRET);
+    return next();
+  } catch {
+    return res.status(401).json({ message: 'Sessão inválida ou expirada.' });
+  }
+}
+
+function requireMember(req, res, next) {
+  if (!['member', 'admin'].includes(req.user?.role)) {
+    return res.status(403).json({ message: 'Entre em uma conta para acessar esta função.' });
+  }
+  return next();
+}
+
+module.exports = { requireAuth, requireAdmin, optionalAuth, requireMember };
