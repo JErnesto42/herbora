@@ -51,7 +51,7 @@ O cliente acessa as rotas públicas de consulta e as rotas da própria conta. As
 1. Crie um usuário e uma senha próprios no MySQL. Não use credenciais reais em arquivos versionados.
 2. Execute o script `backend/database/schema.sql` no MySQL Workbench. A carga inicial procura cada espécie antes de inseri-la, portanto repetir o script não reinsere plantas que já existem.
 3. Para um banco criado antes da restrição contra duplicatas, execute também `backend/database/cleanup_duplicates.sql` no Workbench, conectado com um usuário que possa alterar tabelas. A migração remove apenas linhas com todos os dados iguais (mantendo o menor ID) e cria uma chave única pelo nome científico. Registros diferentes não são apagados; se uma espécie possuir conteúdos diferentes, revise-os antes de aplicar a chave.
-4. Copie `backend/.env.example` para `backend/.env` e preencha as configurações locais do MySQL. Defina `JWT_SECRET` com um segredo aleatório de pelo menos 32 caracteres.
+4. Copie `backend/.env.example` para `backend/.env` e preencha as configurações locais do MySQL. O exemplo usa `localhost`, a porta `3307` e o usuário `herbora`; ajuste `DB_PORT`, `DB_USER` e `DB_PASSWORD` conforme sua instalação. Defina `JWT_SECRET` com um segredo aleatório de pelo menos 32 caracteres.
 5. Instale e inicie a API:
 
    ```bash
@@ -61,6 +61,22 @@ O cliente acessa as rotas públicas de consulta e as rotas da própria conta. As
    ```
 
 6. Acesse `http://localhost:3000/api/health` para confirmar que API e banco conectaram.
+
+### Testes da API e integração
+
+Com a pasta `backend` como diretório atual, execute os testes automatizados de autenticação/autorização:
+
+```bash
+npm test
+```
+
+Para validar o fluxo real com MySQL, mantenha a API (`npm start`) rodando em outro terminal e execute:
+
+```bash
+npm run test:integration
+```
+
+O teste usa as configurações de `backend/.env` e `http://localhost:3000/api` por padrão. Pode-se substituir o endereço com `HERBORA_API_URL`. Ele testa saúde da conexão, consentimento, cadastro, hash da senha, login, JWT, papéis, bloqueio de cliente e CRUD de planta. Para isso, cria um usuário e uma planta temporários com identificadores únicos e os remove ao terminar; não usa nem apaga contas ou plantas existentes. Execute apenas contra o banco local de desenvolvimento.
 
 ### Rotas
 
@@ -78,9 +94,11 @@ O cliente acessa as rotas públicas de consulta e as rotas da própria conta. As
 
 A comunicação entre o app e a API usa `fetch()` por meio do helper `apiRequest` em `services/api.js`. As rotas de consulta retornam os dados do MySQL; quando a API não está disponível, a tela Plantas informa a situação e usa o catálogo demonstrativo local.
 
-O cadastro público sempre cria um cliente e exige consentimento para armazenar nome e e-mail; a data é registrada em `privacy_consent_at`. Para preparar um administrador no banco local de desenvolvimento, cadastre uma conta e altere seu papel com uma operação SQL controlada: `UPDATE users SET role = 'admin' WHERE email = 'email-da-conta';`. Nunca disponibilize essa permissão na tela de cadastro.
+O cadastro público sempre cria um cliente e exige consentimento para armazenar nome e e-mail; a data é registrada em `privacy_consent_at`. A senha é armazenada com bcrypt, e o login emite um JWT com validade de duas horas. O app envia o token como `Bearer` nas rotas protegidas e salva-o no armazenamento seguro nativo. O logout remove o token deste dispositivo.
 
-Depois de atribuir o papel `admin` no MySQL, saia da conta no app e faça login novamente. A conta administrativa passa a mostrar **Gerenciar catálogo de plantas**. O formulário está separado por assunto e pode cadastrar, editar ou desativar plantas; cada ficha exige nome popular, nome científico, categoria, resumo, uso tradicional, preparo, compostos, cuidados e combinações. O nome científico deve identificar uma planta uma única vez.
+Para preparar um administrador no banco local de desenvolvimento, cadastre uma conta e altere seu papel com uma operação SQL controlada: `UPDATE users SET role = 'admin' WHERE email = 'email-da-conta';`. Saia e entre novamente para obter um token com o novo papel; a conta administrativa passa a mostrar **Gerenciar catálogo de plantas**. Nunca disponibilize essa permissão na tela de cadastro.
+
+O formulário de gerenciamento está separado por assunto e pode cadastrar, editar ou desativar plantas; cada ficha exige nome popular, nome científico, categoria, resumo, uso tradicional, preparo, compostos, cuidados e combinações. O nome científico deve identificar uma planta uma única vez.
 
 Após executar a migração de duplicatas, o nome científico possui uma restrição única no MySQL. O CRUD retorna `409 Conflict` se uma tentativa de criação ou alteração duplicar uma espécie já cadastrada.
 
@@ -92,7 +110,7 @@ Na raiz do projeto:
 npm install
 ```
 
-Copie `.env.example` para `.env` e configure `EXPO_PUBLIC_API_URL`. `http://localhost:3000/api` funciona no navegador e pode precisar ser substituído pelo IP da rede local do computador ao testar em um celular físico. Inicie o Expo com `npm start`.
+Copie `.env.example` para `.env` e configure `EXPO_PUBLIC_API_URL`. `http://localhost:3000/api` funciona no navegador e no emulador Android padrão. Em um celular físico, `localhost` aponta para o próprio celular: conecte computador e celular à mesma rede Wi-Fi e use o IPv4 local do computador, por exemplo `http://192.168.0.10:3000/api`. Libere a porta 3000 no firewall se necessário. Inicie o Expo com `npm start`.
 
 O token é salvo no armazenamento seguro do dispositivo nativo. Na versão web, fica somente em memória e é perdido ao recarregar a página.
 
