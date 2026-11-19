@@ -136,6 +136,8 @@ O token é salvo no armazenamento seguro do dispositivo nativo. Na versão web, 
 
 O APK de demonstração usa a API e o MySQL executados no computador; não inclui nem hospeda o banco. Mantenha o computador e o celular na mesma rede Wi-Fi e deixe o MySQL e a API ligados durante a demonstração.
 
+**APK para instalação:** [Baixar Herbora pelo Google Drive](https://drive.google.com/file/d/1yKYr5UA8t0qHRxfA1ucJdo7zkSPtJq4e/view?usp=sharing).
+
 1. Inicie o MySQL e a API. Em um terminal, dentro de `backend`, execute:
 
    ```powershell
