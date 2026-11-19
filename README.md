@@ -87,6 +87,8 @@ npm run test:integration
 
 O teste usa as configurações de `backend/.env` e `http://localhost:3000/api` por padrão. Pode-se substituir o endereço com `HERBORA_API_URL`. Ele testa saúde da conexão, consentimento, cadastro, hash da senha, login, JWT, papéis, bloqueio de usuário comum, recursos pessoais e CRUD de planta. Para isso, cria um usuário e uma planta temporários com identificadores únicos e os remove ao terminar; não usa nem apaga contas ou plantas existentes. Execute apenas contra o banco local de desenvolvimento depois de aplicar a migração de recursos pessoais.
 
+**Resultado registrado em 19/11/2026:** `npm test` passou com 9/9 testes. `npm run test:integration` passou com 14 verificações contra a API Express e o MySQL locais; os registros temporários foram removidos. O APK release foi instalado e aberto em um emulador Android, exibindo a tela inicial sem depender da API. O teste em celular físico e a demonstração dos fluxos mobile completos ainda não foram realizados.
+
 ### Rotas
 
 | Método | Rota | Acesso | Descrição |
