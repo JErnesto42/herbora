@@ -110,6 +110,8 @@ A comunicação entre o app e a API usa `fetch()` por meio do helper `apiRequest
 
 O cadastro público sempre cria um usuário `member` e exige consentimento para armazenar nome, e-mail e os dados de personalização (favoritos, histórico e anotações); a data é registrada em `privacy_consent_at`. A senha é armazenada com bcrypt, e o login emite um JWT com validade de duas horas. O app envia o token como `Bearer` nas rotas protegidas e salva-o no armazenamento seguro nativo. O logout remove o token deste dispositivo.
 
+Quando uma rota protegida rejeita o token com HTTP 401, o app remove a sessão salva. A tela Minha conta também valida o token ao ser aberta novamente; se estiver inválido ou expirado, volta a exibir o acesso de cadastro/login. O teste automatizado de autenticação cobre a rejeição de tokens expirados.
+
 Para preparar um administrador no banco local de desenvolvimento, cadastre uma conta e altere seu papel com uma operação SQL controlada: `UPDATE users SET role = 'admin' WHERE email = 'email-da-conta';`. Saia e entre novamente para obter um token com o novo papel; a conta administrativa passa a mostrar **Gerenciar catálogo de plantas**. Nunca disponibilize essa permissão na tela de cadastro. Após a migração, usuários já conectados devem sair e entrar novamente para receber um JWT com o novo papel `member`.
 
 O formulário de gerenciamento está separado por assunto e pode cadastrar, editar ou desativar plantas; cada ficha exige nome popular, nome científico, categoria, resumo, uso tradicional, preparo, compostos, cuidados e combinações. O nome científico deve identificar uma planta uma única vez.
@@ -127,6 +129,33 @@ npm install
 Copie `.env.example` para `.env` e configure `EXPO_PUBLIC_API_URL`. `http://localhost:3000/api` funciona no navegador e no emulador Android padrão. Em um celular físico, `localhost` aponta para o próprio celular: conecte computador e celular à mesma rede Wi-Fi e use o IPv4 local do computador, por exemplo `http://192.168.0.10:3000/api`. Libere a porta 3000 no firewall se necessário. Inicie o Expo com `npm start`.
 
 O token é salvo no armazenamento seguro do dispositivo nativo. Na versão web, fica somente em memória e é perdido ao recarregar a página.
+
+## Gerar APK Android (Entrega 4)
+
+O APK de demonstração usa a API e o MySQL executados no computador; não inclui nem hospeda o banco. Mantenha o computador e o celular na mesma rede Wi-Fi e deixe o MySQL e a API ligados durante a demonstração.
+
+1. Inicie o MySQL e a API. Em um terminal, dentro de `backend`, execute:
+
+   ```powershell
+   npm start
+   ```
+
+2. No Windows, execute `ipconfig` e anote o **Endereço IPv4** do adaptador Wi-Fi. No celular, abra `http://IP-DO-COMPUTADOR:3000/api/health` no navegador e confirme que aparece `{"status":"ok","database":"connected"}`. Se não abrir, permita conexões de entrada na porta 3000 no Firewall do Windows.
+3. Em outro terminal, na raiz do projeto, configure o endereço da API com esse IPv4 e gere o APK:
+
+   ```powershell
+   $env:EXPO_PUBLIC_API_URL = "http://IP-DO-COMPUTADOR:3000/api"
+   npx expo prebuild --platform android
+   Push-Location android
+   .\gradlew.bat assembleRelease
+   Pop-Location
+   ```
+
+   Substitua `IP-DO-COMPUTADOR` pelo IPv4 anotado, sem `http://` e sem espaços. O arquivo gerado fica em `android\app\build\outputs\apk\release\app-release.apk`. Copie-o para o celular e instale-o. Se o IPv4 da rede mudar, gere o APK novamente com o novo endereço.
+
+   Em caso de erro do Ninja/CMake por limite de caminho no Windows, faça o prebuild em uma cópia do projeto com caminho curto (por exemplo, `C:\hb`). O plugin local do projeto configura o limite de caminhos dos objetos CMake para essa plataforma.
+
+O acesso HTTP sem criptografia é habilitado somente para essa demonstração em rede local. Use uma rede confiável e dados de teste; não use senhas reais nem distribua esse APK para uso público. Uma versão para acesso pela internet precisa de API hospedada com HTTPS e de uma configuração de produção própria.
 
 ## Conteúdo e segurança
 

@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput } from 'react-native';
 import { apiRequest, clearSessionToken, getSessionToken, saveSessionToken } from '../services/api';
 
@@ -14,22 +15,30 @@ export default function AccountScreen({ navigation }) {
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
+    let active = true;
     async function restoreSession() {
+      setCheckingSession(true);
       try {
         const token = await getSessionToken();
-        if (token) {
-          const result = await apiRequest('/auth/me', { token });
-          setSession({ token, user: result.user });
+        if (!token) {
+          if (active) setSession(null);
+          return;
         }
+        const result = await apiRequest('/auth/me', { token });
+        if (active) setSession({ token, user: result.user });
       } catch (error) {
-        setMessage(`Não foi possível restaurar a sessão: ${error.message}`);
+        if (active) {
+          if (error.status === 401) setSession(null);
+          setMessage(`Não foi possível restaurar a sessão: ${error.message}`);
+        }
       } finally {
-        setCheckingSession(false);
+        if (active) setCheckingSession(false);
       }
     }
     restoreSession();
-  }, []);
+    return () => { active = false; };
+  }, []));
 
   async function submit() {
     setMessage('');

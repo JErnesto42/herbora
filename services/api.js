@@ -15,7 +15,10 @@ export async function apiRequest(path, { method = 'GET', body, token } = {}) {
 
   const payload = await response.json().catch(() => null);
   if (!response.ok) {
-    throw new Error(payload?.message || `Falha na API (${response.status}).`);
+    const error = new Error(payload?.message || `Falha na API (${response.status}).`);
+    error.status = response.status;
+    if (response.status === 401 && token) await clearSessionToken();
+    throw error;
   }
   return payload;
 }

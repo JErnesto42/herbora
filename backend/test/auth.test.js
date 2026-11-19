@@ -39,6 +39,22 @@ test('rejects an invalid bearer token', () => {
   assert.equal(nextCalled, false);
 });
 
+test('rejects an expired bearer token', () => {
+  const token = jwt.sign({ sub: '17', role: 'member' }, process.env.JWT_SECRET, { expiresIn: -1 });
+  const req = requestWithAuthorization(`Bearer ${token}`);
+  let nextCalled = false;
+  const res = {
+    statusCode: null,
+    status(code) { this.statusCode = code; return this; },
+    json(payload) { this.payload = payload; return this; },
+  };
+
+  requireAuth(req, res, () => { nextCalled = true; });
+
+  assert.equal(res.statusCode, 401);
+  assert.equal(nextCalled, false);
+});
+
 test('attaches a verified user to the request', () => {
   const token = jwt.sign({ sub: '17', role: 'member' }, process.env.JWT_SECRET);
   const req = requestWithAuthorization(`Bearer ${token}`);
